@@ -95,8 +95,3 @@ with col2:
             "style": {"color": "white"}
         }
     ))
-
-# --- 下部にフラットな地図も表示 ---
-st.divider()
-st.subheader("2D 地図での位置確認")
-st.map(df, latitude='lat', longitude='lon')
