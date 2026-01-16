@@ -7,7 +7,7 @@ import pydeck as pdk
 st.set_page_config(page_title="九州気温 3D Map", layout="wide")
 st.title("九州主要都市の現在の気温 3Dカラムマップ")
 
-# 九州7県のデータ
+# 九州7県の県庁所在地
 kyushu_capitals = {
     'Fukuoka':    {'lat': 33.5904, 'lon': 130.4017},
     'Saga':       {'lat': 33.2494, 'lon': 130.2974},
@@ -18,15 +18,15 @@ kyushu_capitals = {
     'Kagoshima':  {'lat': 31.5600, 'lon': 130.5580}
 }
 
-# --- データ取得関数 ---
+# --- 気象データ取得 ---
 @st.cache_data(ttl=600)
 def fetch_weather_data():
     weather_info = []
     BASE_URL = 'https://api.open-meteo.com/v1/forecast'
-    
+
     for city, coords in kyushu_capitals.items():
         params = {
-            'latitude':  coords['lat'],
+            'latitude': coords['lat'],
             'longitude': coords['lon'],
             'current': 'temperature_2m'
         }
@@ -41,24 +41,24 @@ def fetch_weather_data():
                 'Temperature': data['current']['temperature_2m']
             })
         except Exception as e:
-            st.error(f"Error fetching {city}: {e}")
-            
+            st.error(f"{city} の取得に失敗しました: {e}")
+
     return pd.DataFrame(weather_info)
 
-# データの取得
+# データ取得
 with st.spinner('最新の気温データを取得中...'):
     df = fetch_weather_data()
 
-# 気温を高さ（メートル）に変換（例：1度 = 3000m）
+# 気温を高さに変換（1℃ = 3000m）
 df['elevation'] = df['Temperature'] * 3000
 
-# --- メインレイアウト ---
+# --- レイアウト ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("取得したデータ")
     st.dataframe(df[['City', 'Temperature']], use_container_width=True)
-    
+
     if st.button('データを更新'):
         st.cache_data.clear()
         st.rerun()
@@ -66,32 +66,49 @@ with col1:
 with col2:
     st.subheader("3D カラムマップ")
 
-    # Pydeck の設定
     view_state = pdk.ViewState(
         latitude=32.7,
         longitude=131.0,
         zoom=6.2,
-        pitch=45,  # 地図を傾ける
+        pitch=45,
         bearing=0
     )
 
+    # 気温に応じて色が変わる ColumnLayer
     layer = pdk.Layer(
         "ColumnLayer",
         data=df,
         get_position='[lon, lat]',
         get_elevation='elevation',
-        radius=12000,        # 柱の太さ
-        get_fill_color='[255, 100, 0, 180]', # 柱の色（オレンジ系）
-        pickable=True,       # ホバーを有効に
+        radius=10000,
+        get_fill_color="""
+            [
+                Temperature < 10 ? 0 :
+                Temperature < 25 ? 255 :
+                255,
+
+                Temperature < 10 ? 120 :
+                Temperature < 25 ? 200 :
+                80,
+
+                Temperature < 10 ? 255 :
+                Temperature < 25 ? 0 :
+                0,
+
+                180
+            ]
+        """,
+        pickable=True,
         auto_highlight=True,
     )
 
-    # 描画
-    st.pydeck_chart(pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            "html": "<b>{City}</b><br>気温: {Temperature}°C",
-            "style": {"color": "white"}
-        }
-    ))
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[layer],
+            initial_view_state=view_state,
+            tooltip={
+                "html": "<b>{City}</b><br>気温: {Temperature} ℃",
+                "style": {"color": "white"}
+            }
+        )
+    )
