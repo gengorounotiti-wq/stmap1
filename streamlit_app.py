@@ -76,15 +76,31 @@ with col2:
     )
 
     layer = pdk.Layer(
-        "ColumnLayer",
-        data=df,
-        get_position='[lon, lat]',
-        get_elevation='elevation',
-        radius=12000,        # 柱の太さ
-        get_fill_color='[255, 100, 0, 180]', # 柱の色（オレンジ系）
-        pickable=True,       # ホバーを有効に
-        auto_highlight=True,
-    )
+    "ColumnLayer",
+    data=df,
+    get_position='[lon, lat]',
+    get_elevation='elevation',
+    radius=12000,
+    get_fill_color="""
+        [
+            Temperature < 10 ? 0 :
+            Temperature < 25 ? 255 :
+            255,
+
+            Temperature < 10 ? 120 :
+            Temperature < 25 ? 200 :
+            80,
+
+            Temperature < 10 ? 255 :
+            Temperature < 25 ? 0 :
+            0,
+
+            180
+        ]
+    """,
+    pickable=True,
+    auto_highlight=True,
+)
 
     # 描画
     st.pydeck_chart(pdk.Deck(
